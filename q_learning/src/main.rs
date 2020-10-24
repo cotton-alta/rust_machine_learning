@@ -2,6 +2,24 @@ use std::collections::HashMap;
 
 fn main() {
     #[derive(Debug)]
+    struct Agent {
+        alpha: i32,
+        gamma: i32,
+        epsilon: i32,
+    }
+
+    impl Agent {
+        fn init_q_table(&self) {
+        }
+        fn init_state(&self) {
+        }
+        fn act(&self) {
+        }
+        fn observe(&self) {
+        }
+    }
+
+    #[derive(Debug)]
     struct Grid {
         field: [[i32; 4]; 5],
         field_type: HashMap<String, i32>,
@@ -37,6 +55,17 @@ fn main() {
 
     // agentに関する処理
     println!("{:?}", grid);
+
+    let mut agent = Agent {
+        alpha: 1,
+        gamma: 1,
+        epsilon: 1,
+    };
+
+    agent.alpha = 2;
+
+    println!("{:?}", agent);
+
     step();
 }
 
