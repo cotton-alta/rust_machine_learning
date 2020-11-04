@@ -5,7 +5,7 @@ use rand::Rng;
 struct Agent {
     alpha: f64,
     gamma: f64,
-    epsilon: i32,
+    epsilon: f64,
     actions: String,
     state: [i32; 2],
     reward_history: Vec<f64>,
@@ -24,11 +24,13 @@ impl Agent {
     fn init_state(&self) {
     }
 
-    fn act(&self) -> i32 {
+    fn act(&mut self) -> i32 {
+        // println!("{:?}", self.q_values);
         let mut rng = rand::thread_rng();
+        let mut action: i32 = 0;
 
-        if rng.gen::<i32>() < self.epsilon {
-            rng.gen_range(0, 4)
+        if rng.gen::<f64>() < self.epsilon {
+            action = rng.gen_range(0, 4);
         } else {
             let state_key = self.state[0].to_string() + &self.state[1].to_string();
             let mut max_value = self.q_values[&state_key][0];
@@ -41,8 +43,10 @@ impl Agent {
                 }
                 count += 1;
             }
-            max_key
+            action = max_key;
         }
+        self.previous_action = action;
+        action
     }
 
     fn observe(&mut self, next_state: [i32; 2], reward: f64) {
@@ -53,8 +57,10 @@ impl Agent {
         self.previous_state = self.state;
         self.state = next_state;
 
-        self.reward_history.push(reward);
-        self.learn(reward);
+        if reward != -1000.0 {
+            self.reward_history.push(reward);
+            self.learn(reward);
+        }
     }
 
     fn learn(&mut self, reward: f64) {
@@ -62,7 +68,7 @@ impl Agent {
         let previous_action_key = self.previous_action as usize;
         let state_key = self.state[0].to_string() + &self.state[1].to_string();
         let q_value = self.q_values[&previous_state_key][previous_action_key];
-        let mut max_q: f64 = 0.0;
+        let mut max_q: f64 = self.q_values[&state_key][0];
 
         // println!("{:?}", self.q_values);
 
@@ -91,15 +97,14 @@ impl Grid {
     }
 
     fn step(&mut self, action: i32) -> ([i32; 2], f64, bool) {
-        println!("agent_position : {:?}", self.agent_position);
         if self.judge_action(action) == false {
             return (self.agent_position, -1.0, false)
         }
 
         if action == self.actions["up"] {
-            self.agent_position[1] += 1;
-        } else if action == self.actions["down"] {
             self.agent_position[1] -= 1;
+        } else if action == self.actions["down"] {
+            self.agent_position[1] += 1;
         } else if action == self.actions["left"] {
             self.agent_position[0] -= 1;
         } else {
@@ -115,30 +120,35 @@ impl Grid {
         let mut agent_position = self.agent_position;
 
         if action == self.actions["up"] {
-            agent_position[1] += 1;
-        } else if action == self.actions["down"] {
             agent_position[1] -= 1;
+        } else if action == self.actions["down"] {
+            agent_position[1] += 1;
         } else if action == self.actions["left"] {
             agent_position[0] -= 1;
         } else {
             agent_position[0] += 1;
         }
 
-        if 3 < agent_position[1] || 0 > agent_position[1] {
+        if 4 < agent_position[1] || 0 > agent_position[1] {
             return false
         }
 
-        if 4 < agent_position[0] || 0 > agent_position[0] {
+        if 3 < agent_position[0] || 0 > agent_position[0] {
             return false
         }
 
-        if self.judge_wall() {
+        if self.judge_wall(agent_position) {
             return false
         }
         true
     }
 
-    fn judge_wall(&self) -> bool {
+    fn judge_wall(&self, agent_position: [i32; 2]) -> bool {
+        let x = agent_position[0] as usize;
+        let y = agent_position[1] as usize;
+        if self.field[y][x] == self.field_type["wall"] {
+            return true
+        }
         false
     }
 
@@ -146,7 +156,9 @@ impl Grid {
         let x: usize = self.agent_position[0] as usize;
         let y: usize = self.agent_position[1] as usize;
 
-        if self.field[x][y] == self.field_type["goal"] {
+        if self.field[y][x] == self.field_type["goal"] {
+            return true
+        } else if self.field[y][x] == self.field_type["trap"] {
             return true
         }
         false
@@ -156,10 +168,10 @@ impl Grid {
         let x: usize = self.agent_position[0] as usize;
         let y: usize = self.agent_position[1] as usize;
 
-        if self.field[x][y] == self.field_type["goal"] {
-            10.0
-        } else if self.field[x][y] == self.field_type["trap"] {
-            -10.0
+        if self.field[y][x] == self.field_type["goal"] {
+            100.0
+        } else if self.field[y][x] == self.field_type["trap"] {
+            -100.0
         } else {
             0.0
         }
@@ -176,14 +188,14 @@ fn main() {
     let mut grid = Grid {
         field: [
             [0, 2, 0, 1],
-            [0, 0, 0, 2],
+            [0, 2, 0, 2],
+            [0, 3, 0, 0],
             [0, 0, 2, 0],
-            [2, 0, 2, 0],
             [3, 0, 0, 0]
         ],
         field_type: HashMap::new(),
         actions: HashMap::new(),
-        agent_position: [0, 4],
+        agent_position: [0, 0],
         start_position: [0, 0],
     };
 
@@ -197,14 +209,11 @@ fn main() {
     grid.actions.insert(String::from("left"), 2);
     grid.actions.insert(String::from("right"), 3);
 
-    grid.position_change(1, 1);
-    grid.step(1);
-
     // agentに関する処理
     let mut agent = Agent {
-        alpha: 2.0,
+        alpha: 0.2,
         gamma: 0.99,
-        epsilon: 1,
+        epsilon: 0.1,
         actions: String::from("up"),
         state: [0, 0],
         reward_history: vec![],
@@ -215,23 +224,27 @@ fn main() {
 
     agent.q_values.insert(String::from("00"), [0.0, 0.0, 0.0, 0.0]);
 
-    agent.alpha = 2.0;
-
-    agent.act();
-
     // learning
-    let epochs = 10;
+    let epochs = 1000;
     let mut judge_end = false;
+    let mut reward: Vec<f64> = Vec::new();
     for epoch in 1..=epochs {
         println!("{}", epoch);
+        let mut epoch_reward: Vec<f64> = Vec::new();
+        let mut count = 0;
         while judge_end == false {
             let action = agent.act();
             let (state, reward, inner_judge_end) = grid.step(action);
             judge_end = inner_judge_end;
             agent.observe(state, reward);
+            epoch_reward.push(reward);
+            count += 1;
         }
+        println!("{}", count);
         let state = grid.reset();
-        agent.observe(state, 0.0);
+        agent.observe(state, -1000.0);
         judge_end = false;
+        reward.push(epoch_reward.iter().sum());
+        // println!("{:?}", reward);
     }
 }
