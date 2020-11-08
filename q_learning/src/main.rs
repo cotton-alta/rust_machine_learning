@@ -25,7 +25,6 @@ impl Agent {
     }
 
     fn act(&mut self) -> i32 {
-        // println!("{:?}", self.q_values);
         let mut rng = rand::thread_rng();
         let mut action: i32 = 0;
 
@@ -33,10 +32,13 @@ impl Agent {
             action = rng.gen_range(0, 4);
         } else {
             let state_key = self.state[0].to_string() + &self.state[1].to_string();
-            let mut max_value = self.q_values[&state_key][0];
-            let mut max_key: i32 = 0;
-            let mut count: i32 = 0;
+            let mut count: i32 = rng.gen_range(0, 4);
+            let mut max_value = self.q_values[&state_key][count as usize];
+            let mut max_key: i32 = count;
             for value in self.q_values[&state_key].iter() {
+                if count > 3 {
+                    count -= 4;
+                }
                 if *value > max_value {
                     max_value = *value;
                     max_key = count;
@@ -69,8 +71,6 @@ impl Agent {
         let state_key = self.state[0].to_string() + &self.state[1].to_string();
         let q_value = self.q_values[&previous_state_key][previous_action_key];
         let mut max_q: f64 = self.q_values[&state_key][0];
-
-        // println!("{:?}", self.q_values);
 
         for value in self.q_values[&state_key].iter() {
             if *value > max_q {
@@ -213,7 +213,7 @@ fn main() {
     let mut agent = Agent {
         alpha: 0.2,
         gamma: 0.99,
-        epsilon: 0.1,
+        epsilon: 0.05,
         actions: String::from("up"),
         state: [0, 0],
         reward_history: vec![],
@@ -225,11 +225,10 @@ fn main() {
     agent.q_values.insert(String::from("00"), [0.0, 0.0, 0.0, 0.0]);
 
     // learning
-    let epochs = 1000;
+    let epochs = 500;
     let mut judge_end = false;
     let mut reward: Vec<f64> = Vec::new();
     for epoch in 1..=epochs {
-        println!("{}", epoch);
         let mut epoch_reward: Vec<f64> = Vec::new();
         let mut count = 0;
         while judge_end == false {
@@ -245,6 +244,5 @@ fn main() {
         agent.observe(state, -1000.0);
         judge_end = false;
         reward.push(epoch_reward.iter().sum());
-        // println!("{:?}", reward);
     }
 }
